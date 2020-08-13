@@ -141,6 +141,8 @@ Error message and password prompt
 
 <p>This <a class="tc-tiddlylink-external" href="https://tiddlywiki.com" rel="noopener noreferrer" target="_blank">TiddlyWiki</a> contains the following tiddlers:</p><p><ul>
 
+<li>$:/config/PageControlButtons/Visibility/$:/core/ui/Buttons/new-journal</li>
+
 <li>$:/core</li>
 
 <li>$:/DefaultTiddlers</li>
@@ -153,7 +155,11 @@ Error message and password prompt
 
 <li>$:/GitHub/Username</li>
 
+<li>$:/Import</li>
+
 <li>$:/isEncrypted</li>
+
+<li>$:/plugins/telmiger/rpn/rpn.js</li>
 
 <li>$:/SiteTitle</li>
 
@@ -209,6 +215,9 @@ Error message and password prompt
 <!--~~ Ordinary tiddlers ~~-->
 
 <div id="storeArea" style="display:none;">
+<div created="20200813044434114" modified="20200813044434848" title="$:/config/PageControlButtons/Visibility/$:/core/ui/Buttons/new-journal">
+<pre>hide</pre>
+</div>
 <div author="JeremyRuston" core-version="&gt;=5.0.0" dependents="" description="TiddlyWiki5 core" list="readme" name="Core" plugin-priority="0" plugin-type="plugin" title="$:/core" type="application/json" version="5.1.22">
 <pre>{
     &quot;tiddlers&quot;: {
@@ -9598,13 +9607,193 @@ Home</pre>
 <div created="20200811033704513" modified="20200811033704948" title="$:/GitHub/Username">
 <pre>David.Knickmeyer@gmail.com</pre>
 </div>
+<div status="complete" title="$:/Import">
+<pre>The following tiddlers were imported:
+
+# [[$:/plugins/telmiger/rpn/rpn.js]]</pre>
+</div>
 <div title="$:/isEncrypted">
 <pre>no</pre>
+</div>
+<div created="20170626211546891" creator="Thomas Elmiger" modified="20170814062342206" modifier="Thomas Elmiger" module-type="macro" tags="[[ToDo Addons]]" title="$:/plugins/telmiger/rpn/rpn.js" type="application/javascript">
+<pre>/*\
+title: $:/plugins/telmiger/lib/rpn.js
+type: application/javascript
+module-type: macro
+
+Macro to execute simple calculations in reverse Polish notation
+Documentation see https://tid.li/tw5/plugins.html
+Version 0.6.2
+\*/
+(function(){
+
+/*jslint node: true, browser: true */
+/*global $tw: false */
+&quot;use strict&quot;;
+
+/*
+Information about this macro
+*/
+
+exports.name = &quot;rpn&quot;;
+
+exports.params = [
+	{name: &quot;a&quot;},
+	{name: &quot;b&quot;},
+        {name: &quot;operation&quot;, default: &quot;+&quot;},
+        {name: &quot;decimals&quot;, default: &quot;&quot;},
+        {name: &quot;precision&quot;, default: &quot;&quot;},
+        {name: &quot;locale&quot;, default: &quot;false&quot;},
+        {name: &quot;sd&quot;, default: &quot;.&quot;},
+        {name: &quot;st&quot;, default: &quot;&quot;}
+];
+
+/*
+Wikify
+*/
+function wikifyText(t) {
+	var Parser = $tw.wiki.parseText(&quot;text/vnd.tiddlywiki&quot;,t,{
+			parseAsInline: true
+		});
+	var WidgetNode = $tw.wiki.makeWidget(Parser,{
+			document: $tw.fakeDocument
+		});
+	var Container = $tw.fakeDocument.createElement(&quot;div&quot;);
+	WidgetNode.render(Container,null);
+	return Container.textContent;
+}
+
+/*
+Format decimals and (TODO!) thousands
+*/
+function formatNumber(value,sd,st) {
+	let string = value.toString();
+	// string = string; // TODO separator for thousands
+	return string.replace(&quot;.&quot;,sd); // separator for decimals
+}
+
+/*
+Formatting with locale
+*/
+function formatLocale(value,decimals,precision,locale) { 
+	let result = &quot;NaN&quot;;
+	if(decimals == &quot;&quot; || decimals &gt;= 0) {
+		let minFracDig = (precision == &quot;p&quot; ? decimals : &quot;&quot;);
+		result = value.toLocaleString(locale, { minimumFractionDigits: minFracDig });
+	}
+	else {
+		result = &quot;invalid decimals&quot;;
+	}
+	return result;
+}
+
+/*
+Precision for decimals
+*/
+function addPrecisionDecimals(result,decimals) { 
+    let di = parseInt(decimals);
+    let rInteger = result.toString().split('.')[0].length;
+    let p = rInteger + di;
+    if(p &gt; 0 &amp;&amp; p &lt; 101) {
+	result = result.toPrecision(p);
+    }
+    else {
+        result = &quot;invalid decimals&quot;;
+    }
+    return result;
+}
+
+/*
+Random numbers including a and b
+*/
+function randomInteger(a,b) {
+	let min = Math.ceil(a);
+	let max = Math.floor(b + 1);
+	return Math.floor(Math.random() * (max - min)) + min; 
+}
+
+/*
+Math
+*/
+function calculate(a,b,operation) {
+    let result = &quot;NaN&quot;;
+    switch(operation) {
+        case &quot;-&quot;:
+            result = a - b;
+            break;
+        case &quot;*&quot;:
+            result = a * b;
+            break;
+        case &quot;/&quot;:
+            result = a / b;
+            break;
+        case &quot;%&quot;:
+            result = a % b;
+            break;
+        default:
+            result = a + b;
+    }
+    return result;
+}
+
+/*
+Run the macro
+*/
+exports.run = function(a,b,operation,decimals,precision,locale,sd,st) {
+	let aw = wikifyText(a);
+	let bw = wikifyText(b);
+	let result = &quot;&quot;;
+	if(operation == &quot;&amp;&quot;) {
+		result = wikifyText(a + b);
+	}
+	else {
+		// prepare values
+		var af = aw.replace(&quot;,&quot;,&quot;.&quot;);
+		var bf = bw.replace(&quot;,&quot;,&quot;.&quot;);
+		af = (af == &quot;pi&quot; ? Math.PI : parseFloat(af));
+		bf = (bf == &quot;pi&quot; ? Math.PI : parseFloat(bf));
+		// do the math
+		result = calculate(af,bf,operation);
+		// precision modes
+		if(precision == &quot;r&quot;) {
+			result = randomInteger(af,bf); 
+		}
+		else if(precision == &quot;p&quot; &amp;&amp; locale == &quot;false&quot;) {
+			result = addPrecisionDecimals(result,decimals);
+		}
+		else if(precision == &quot;c&quot;) {
+			result = Math.ceil(result);
+		}
+		else if(precision == &quot;f&quot;) {
+			result = Math.floor(result);
+		}
+		else if(precision != &quot;&quot; &amp;&amp; locale == &quot;false&quot;) {
+		// formatLocale ignores precision values other than p
+			result = &quot;invalid precision&quot;;
+		}
+		// if precision is not defined, round based on (max.) decimals
+		else if(decimals != &quot;&quot;) {
+			var di = parseInt(decimals);
+			result = Math.round(result * Math.pow(10, di)) / Math.pow(10, di);            
+		}
+		// format output
+		if(locale != &quot;false&quot;) {
+			result = formatLocale(result,decimals,precision,locale);
+		}
+		else {
+			result = formatNumber(result,sd,st);
+		}
+	}
+	return result;
+};
+
+})();
+</pre>
 </div>
 <div created="20200810214747799" modified="20200813041540132" title="$:/SiteTitle">
 <pre>Dave's ~TiddlyWiki</pre>
 </div>
-<div created="20200812211140267" modified="20200813042543451" title="$:/state/sidebar">
+<div created="20200812211140267" modified="20200813044404388" title="$:/state/sidebar">
 <pre>yes</pre>
 </div>
 <div created="20200811034931193" modified="20200811034936259" title="$:/state/tab--2112689675">
@@ -9623,9 +9812,9 @@ Home</pre>
 <pre>$:/core/ui/SideBar/Tools</pre>
 </div>
 <div title="$:/status/RequireReloadDueToPluginChange">
-<pre>no</pre>
+<pre>yes</pre>
 </div>
-<div created="20200812212259143" list="Lists? Home" modified="20200813041530836" title="$:/StoryList">
+<div created="20200812212259143" list="$:/Import Lists? Home" modified="20200813041530836" title="$:/StoryList">
 <pre></pre>
 </div>
 <div plugin-type="info" title="$:/temp/info-plugin" type="application/json">
